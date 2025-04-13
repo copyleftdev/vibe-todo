@@ -26,7 +26,7 @@ The easiest way to run the application is with Docker:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/vibe-todo.git
+git clone https://github.com/copyleftdev/vibe-todo.git
 cd vibe-todo
 
 # Run the application with Docker
@@ -37,7 +37,7 @@ docker-compose run app
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/vibe-todo.git
+git clone https://github.com/copyleftdev/vibe-todo.git
 cd vibe-todo
 
 # Create and activate a virtual environment (optional but recommended)

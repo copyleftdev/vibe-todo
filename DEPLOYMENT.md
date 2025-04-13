@@ -12,7 +12,7 @@ This document provides detailed deployment instructions for the Vibe Todo applic
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/vibe-todo.git
+   git clone https://github.com/copyleftdev/vibe-todo.git
    cd vibe-todo
    ```
 
@@ -46,7 +46,7 @@ This document provides detailed deployment instructions for the Vibe Todo applic
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/vibe-todo.git
+   git clone https://github.com/copyleftdev/vibe-todo.git
    cd vibe-todo
    ```
 
@@ -87,7 +87,7 @@ This document provides detailed deployment instructions for the Vibe Todo applic
    After=network.target
 
    [Service]
-   User=yourusername
+   User=copyleftdev
    WorkingDirectory=/path/to/vibe-todo
    ExecStart=/path/to/vibe-todo/venv/bin/python -m todo
    Restart=always
