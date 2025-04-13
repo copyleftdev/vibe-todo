@@ -1,0 +1,28 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest cache
+.pytest_cache/
+
+# Hypothesis test database
+.hypothesis/
+
+# Reports (can be regenerated)
+reports/*.json
+reports/*.md
+
+# Environment
+.env
+venv/
+env/
+ENV/
+
+# Logs
+*.log
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/

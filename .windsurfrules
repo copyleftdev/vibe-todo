@@ -1,0 +1,49 @@
+1. Use Python 3.11+.
+2. Use SQLite for persistent storage.
+3. Employ testable, production-quality code following PEP-8 standards.
+4. Utilize only standard libraries plus Hypothesis and Pytest.
+5. Maintain modular code structure: separate models, controllers, and tests.
+6. Include both unit and property-based tests using Hypothesis.
+7. Avoid unnecessary comments.
+8. Before any code is committed or merged, all Hypothesis tests in `tests/test_hypothesis.py` **must** pass.
+9. Optimize for high-performance workloads, assuming thousands or hundreds of thousands of operations per second:
+   - Consider appropriate use of in-memory caching
+   - Avoid unnecessary database reads/writes
+   - Use batch operations or connection pooling where possible
+   - Prioritize efficient algorithms and indexing
+10. The to-do app must support the following core features:
+   - Add a task
+   - Mark a task as completed
+   - Delete a task
+   - List all tasks
+   - Filter tasks by completion status
+11. Tasks must conform to this schema:
+   - id: str
+   - title: str
+   - done: bool
+12. The system must include a benchmark test that:
+   - Measures task creation, toggling, and deletion under increasing load
+   - Detects slowdowns, memory leaks, or SQLite exhaustion
+   - Helps validate throughput and durability claims
+13. Benchmark and application logging must:
+   - Output structured, machine-readable logs (e.g., JSON or tagged lines)
+   - Be observable and parsable by Windsurf's LLM agent for automated insights
+   - Include keys like `operation`, `duration_ms`, `success`, `error`, `record_count`
+14. All operations must meet a Service-Level Agreement (SLA) of **10 milliseconds maximum latency per task operation**. Benchmarks must assert and log whether SLA thresholds are violated.
+15. Never create new files unless explicitly requested by the user. All modifications should be limited to existing files unless there is a direct request to create a new file.
+16. All user inputs must be validated and sanitized to handle malicious payloads:
+   - SQL injection attempts must be neutralized
+   - Large inputs (>10,000 characters) must be handled gracefully
+   - Special characters, unicode, emojis, and multi-byte characters must be supported
+   - Null bytes and escape sequences must be properly sanitized
+   - Input validation must not reject valid use cases
+17. Evolutionary testing using DEAP must be used to continuously discover and address edge cases:
+   - Tests must evolve payloads that might break the system
+   - Any payload that causes a system error must be documented and fixed
+   - SLA violations discovered through evolutionary testing must be addressed
+   - All discovered vulnerabilities must be added to regression tests
+18. The application must maintain data integrity even with adversarial inputs:
+   - No database corruption under any circumstances
+   - Invalid inputs should be rejected with clear error messages
+   - Operations should be atomic and transactional
+   - The system must recover gracefully from any error state
