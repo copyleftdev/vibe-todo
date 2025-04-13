@@ -1,5 +1,6 @@
+from todo.controller import add_task, delete_task, list_tasks, toggle_done
 from todo.models import init_db
-from todo.controller import add_task, toggle_done, delete_task, list_tasks
+
 
 def test_add_and_list():
     conn = init_db()

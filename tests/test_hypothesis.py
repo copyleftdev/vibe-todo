@@ -1,7 +1,9 @@
 from hypothesis import given
 from hypothesis.strategies import text
+
+from todo.controller import add_task, delete_task, list_tasks, toggle_done
 from todo.models import init_db
-from todo.controller import add_task, toggle_done, delete_task, list_tasks
+
 
 @given(title=text(min_size=1, max_size=100))
 def test_add_task_persists(title):

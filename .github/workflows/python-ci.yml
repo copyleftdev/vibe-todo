@@ -1,0 +1,71 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install linting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black mypy
+          
+      - name: Lint with Ruff
+        run: |
+          ruff check .
+          
+      - name: Check formatting with Black
+        run: |
+          black --check .
+          
+      - name: Type check with mypy
+        run: |
+          mypy todo tests
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest hypothesis deap
+          pip install -e .
+          
+      - name: Run tests
+        run: |
+          python run_all_tests.py
+          
+      - name: Run regression tests
+        run: |
+          pytest tests/test_regression.py
+          
+      - name: Run benchmark tests (quick mode)
+        run: |
+          python tests/test_benchmark.py --quick
+          
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-reports
+          path: reports/
+          retention-days: 7

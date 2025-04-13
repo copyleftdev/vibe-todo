@@ -3,13 +3,20 @@
 Regression Test Suite for Todo Application
 Tests known edge cases and ensures the application remains robust against them.
 """
-import pytest
 import sqlite3
 import uuid
-import json
-from hypothesis import given, strategies as st
+
+import pytest
+
+from todo.controller import (
+    add_task,
+    delete_task,
+    execute_transaction,
+    get_task,
+    list_tasks,
+    toggle_done,
+)
 from todo.models import init_db
-from todo.controller import add_task, toggle_done, delete_task, list_tasks, get_task, execute_transaction
 from todo.validation import ValidationError
 
 # Known problematic payloads to test against
@@ -170,7 +177,6 @@ def test_transaction_rollback(db_connection):
     
     # We need to create a custom transaction function that will directly use
     # the execute_transaction from our controller
-    from todo.controller import execute_transaction
     
     try:
         # Create a function that will trigger an SQL error

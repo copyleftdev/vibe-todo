@@ -4,10 +4,10 @@ Setup script for Git hooks in the Vibe Todo project.
 This script installs the pre-commit hook to ensure all tests pass before committing.
 """
 import os
-import sys
 import shutil
 import subprocess
-from pathlib import Path
+import sys
+
 
 def setup_git_hooks():
     """Set up Git hooks for the project."""

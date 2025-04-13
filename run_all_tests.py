@@ -3,12 +3,12 @@
 Test Runner for Vibe Todo project
 Runs all tests to ensure code quality before committing or merging changes
 """
-import os
-import sys
-import subprocess
-import time
 import json
+import os
+import subprocess
+import sys
 from datetime import datetime
+
 
 # Colors for terminal output
 class Colors:
@@ -232,7 +232,39 @@ Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 if __name__ == "__main__":
     quick_mode = "--quick" in sys.argv
+    include_evolutionary = "--evolutionary" in sys.argv
+    
+    print(f"{Colors.YELLOW}Running tests with options:{Colors.ENDC} " +
+          f"{'quick mode' if quick_mode else 'full mode'}" +
+          f"{', including evolutionary tests' if include_evolutionary else ''}")
+    
     success = run_all_tests(quick_mode=quick_mode)
+    
+    # If evolutionary tests were requested but not already run (due to quick mode), run them now
+    if include_evolutionary and quick_mode:
+        print_header("EVOLUTIONARY TESTS")
+        print(f"{Colors.YELLOW}Running evolutionary tests separately as requested...{Colors.ENDC}")
+        print(f"{Colors.YELLOW}Note: These tests may take several minutes to complete.{Colors.ENDC}")
+        
+        # Run the evolutionary tests with quick mode if specified
+        evo_cmd = "python tests/test_evolutionary.py --quick" if quick_mode else "python tests/test_evolutionary.py"
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.dirname(os.path.abspath(__file__))
+        
+        evo_passed, evo_stdout, evo_stderr = run_command(evo_cmd, env)
+        print(evo_stdout[:1000] + "..." if len(evo_stdout) > 1000 else evo_stdout)
+        if evo_stderr.strip():
+            print(f"{Colors.RED}{evo_stderr}{Colors.ENDC}")
+        
+        print_result("Evolutionary Tests", evo_passed)
+        
+        # Update overall success
+        success = success and evo_passed
+        
+        print_header("UPDATED OVERALL RESULT")
+        overall_result = "PASSED" if success else "FAILED"
+        color = Colors.GREEN if success else Colors.RED
+        print(f"{color}{Colors.BOLD}{overall_result}{Colors.ENDC}")
     
     # Exit with appropriate code for CI/CD integration
     sys.exit(0 if success else 1)

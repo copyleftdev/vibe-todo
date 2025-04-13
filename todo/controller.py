@@ -1,39 +1,52 @@
-import uuid
-import sqlite3
-import time
 import json
-import logging
-from todo.validation import validate_title, validate_task_id, validate_boolean, generate_task_id, ValidationError
+import time
+
+from todo.validation import (
+    generate_task_id,
+    validate_boolean,
+    validate_task_id,
+    validate_title,
+)
+
 
 def log_operation(operation, duration_ms, success, error=None, record_count=1):
-    """Log operation details in structured JSON format."""
-    log_data = {
+    """Log a database operation with performance metrics"""
+    # SLA threshold defined as constant
+    sla_threshold_ms = 10  # Use lowercase for variable names
+    log_entry = {
         "operation": operation,
-        "duration_ms": round(duration_ms, 2),
+        "duration_ms": duration_ms,
         "success": success,
         "record_count": record_count,
-        "sla_pass": duration_ms <= 10,  # 10ms SLA threshold
+        "sla_pass": duration_ms <= sla_threshold_ms,  # SLA threshold
         "timestamp": time.time()
     }
     
     if error:
-        log_data["error"] = str(error)
-        
-    print(json.dumps(log_data))
-    return log_data
+        log_entry["error"] = str(error)
+    
+    print(json.dumps(log_entry))
+    return log_entry
 
 def execute_transaction(conn, operation_name, operation_func, *args, **kwargs):
     """
-    Execute a database operation within a transaction with proper error handling and logging.
+    Execute a database operation within a transaction with proper error 
+    handling and logging.
     
     Args:
-        conn: Database connection
+        conn: SQLite connection object
         operation_name: Name of the operation for logging
-        operation_func: Function to execute within the transaction
+        operation_func: Function to execute inside the transaction
         *args, **kwargs: Arguments to pass to the operation function
         
     Returns:
-        Result of the operation function
+        Tuple containing (result, success, error)
+        where result is the function's return value,
+        success is a boolean indicating success/failure,
+        and error is None or the exception on failure
+        
+    Raises:
+        Exception: Re-raises any exception from the operation for proper error handling
     """
     start_time = time.time()
     success = False
@@ -42,38 +55,51 @@ def execute_transaction(conn, operation_name, operation_func, *args, **kwargs):
     
     try:
         # Begin transaction
-        conn.execute("BEGIN TRANSACTION")
+        conn.execute('BEGIN TRANSACTION')
         
         # Execute the operation
         result = operation_func(*args, **kwargs)
         
-        # Commit the transaction
+        # Commit if successful
         conn.commit()
         success = True
         
     except Exception as e:
-        # Rollback on error
+        # Handle transaction failure
         try:
             conn.rollback()
-        except:
-            pass  # Ignore rollback errors
-            
+        except Exception as rollback_error:  # Use specific exception type
+            # Log rollback error
+            log_operation(
+                f"{operation_name}_rollback_error", 
+                0, 
+                False, 
+                error=str(rollback_error)
+            )
+        
         error = e
+        
+        # Log the operation before re-raising
+        duration_ms = round((time.time() - start_time) * 1000, 2)
+        log_operation(operation_name, duration_ms, False, error)
+        
+        # Re-raise the exception for proper error handling
         raise
-        
+    
     finally:
-        # Calculate duration and log the operation
-        duration_ms = (time.time() - start_time) * 1000
-        log_operation(operation_name, duration_ms, success, error)
-        
-    return result
+        # Only log successful operations here since failed ones are logged before re-raising
+        if success:
+            duration_ms = round((time.time() - start_time) * 1000, 2)
+            log_operation(operation_name, duration_ms, success)
+    
+    return result, success, error
 
 def add_task(conn, title):
     """
     Add a new task with the given title.
     
     Args:
-        conn: Database connection
+        conn: SQLite connection object
         title (str): Title of the task
     
     Returns:
@@ -96,14 +122,15 @@ def add_task(conn, title):
         
         return {'id': task_id, 'title': sanitized_title, 'done': False}
     
-    return execute_transaction(conn, "add_task", _add_task_impl, title)
+    result, _, _ = execute_transaction(conn, "add_task", _add_task_impl, title)
+    return result
 
 def toggle_done(conn, task_id):
     """
     Toggle the done status of a task.
     
     Args:
-        conn: Database connection
+        conn: SQLite connection object
         task_id (str): ID of the task to toggle
         
     Returns:
@@ -130,14 +157,15 @@ def toggle_done(conn, task_id):
         
         return True
     
-    return execute_transaction(conn, "toggle_done", _toggle_done_impl, task_id)
+    result, _, _ = execute_transaction(conn, "toggle_done", _toggle_done_impl, task_id)
+    return result
 
 def delete_task(conn, task_id):
     """
     Delete a task.
     
     Args:
-        conn: Database connection
+        conn: SQLite connection object
         task_id (str): ID of the task to delete
         
     Returns:
@@ -163,14 +191,15 @@ def delete_task(conn, task_id):
         
         return True
     
-    return execute_transaction(conn, "delete_task", _delete_task_impl, task_id)
+    result, _, _ = execute_transaction(conn, "delete_task", _delete_task_impl, task_id)
+    return result
 
 def list_tasks(conn, done=None):
     """
     List tasks, optionally filtered by done status.
     
     Args:
-        conn: Database connection
+        conn: SQLite connection object
         done (bool, optional): Filter by done status. If None, returns all tasks.
         
     Returns:
@@ -180,12 +209,7 @@ def list_tasks(conn, done=None):
         ValidationError: If done parameter is invalid
         sqlite3.Error: If database operation fails
     """
-    start_time = time.time()
-    success = False
-    error = None
-    results = []
-    
-    try:
+    def _list_tasks_impl(done):
         # Validate done parameter if provided
         done_filter = None if done is None else validate_boolean(done)
         
@@ -199,58 +223,41 @@ def list_tasks(conn, done=None):
         # Convert to list of dicts
         results = [{'id': row[0], 'title': row[1], 'done': bool(row[2])} 
                   for row in cursor.fetchall()]
-        success = True
-        
-    except Exception as e:
-        error = e
-        raise
-        
-    finally:
-        # Calculate duration and log
-        duration_ms = (time.time() - start_time) * 1000
-        log_operation("list_tasks", duration_ms, success, error, len(results))
+        return results
     
-    return results
+    result, _, _ = execute_transaction(conn, "list_tasks", _list_tasks_impl, done)
+    return result
 
 def get_task(conn, task_id):
     """
-    Get a single task by ID.
+    Get a task by ID
     
     Args:
-        conn: Database connection
-        task_id (str): ID of the task to get
+        conn: SQLite connection
+        task_id: ID of the task to retrieve
         
     Returns:
-        dict: Task object or None if not found
-        
-    Raises:
-        ValidationError: If task_id is invalid
-        sqlite3.Error: If database operation fails
+        Task dictionary or None if not found
     """
-    start_time = time.time()
-    success = False
-    error = None
-    result = None
-    
-    try:
-        # Validate task ID
+    def _get_task():
+        # Validate the task ID
         validated_id = validate_task_id(task_id)
         
         # Query the task
-        cursor = conn.execute('SELECT id, title, done FROM tasks WHERE id = ?', (validated_id,))
+        cursor = conn.execute(
+            'SELECT id, title, done FROM tasks WHERE id = ?', 
+            (validated_id,)
+        )
         row = cursor.fetchone()
         
         if row:
-            result = {'id': row[0], 'title': row[1], 'done': bool(row[2])}
-        success = True
-        
-    except Exception as e:
-        error = e
-        raise
-        
-    finally:
-        # Calculate duration and log
-        duration_ms = (time.time() - start_time) * 1000
-        log_operation("get_task", duration_ms, success, error)
+            return {
+                'id': row[0],
+                'title': row[1], 
+                'done': bool(row[2])
+            }
+        return None
     
+    # Execute within a transaction
+    result, _, _ = execute_transaction(conn, "get_task", _get_task)
     return result

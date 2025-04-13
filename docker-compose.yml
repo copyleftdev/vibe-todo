@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Main application service
+  app:
+    build: .
+    volumes:
+      - .:/app
+    command: python -m todo
+    environment:
+      - PYTHONPATH=/app
+
+  # Linting service
+  lint:
+    build: .
+    volumes:
+      - .:/app
+    command: >
+      sh -c "
+        ruff check . &&
+        black --check . &&
+        mypy todo tests
+      "
+
+  # Unit and hypothesis tests
+  test-unit:
+    build: .
+    volumes:
+      - .:/app
+    command: pytest tests/test_unit.py tests/test_hypothesis.py -v
+
+  # Regression tests
+  test-regression:
+    build: .
+    volumes:
+      - .:/app
+    command: pytest tests/test_regression.py -v
+
+  # Benchmark tests (quick mode)
+  test-benchmark:
+    build: .
+    volumes:
+      - .:/app
+    command: python tests/test_benchmark.py --quick
+
+  # Evolutionary tests (quick mode)
+  test-evolutionary:
+    build: .
+    volumes:
+      - .:/app
+    command: python tests/test_evolutionary.py --quick
+
+  # All tests
+  test-all:
+    build: .
+    volumes:
+      - .:/app
+    command: python run_all_tests.py
+
+  # All tests including evolutionary
+  test-all-evolutionary:
+    build: .
+    volumes:
+      - .:/app
+    command: python run_all_tests.py --evolutionary

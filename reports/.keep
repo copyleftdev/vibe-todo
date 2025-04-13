@@ -1,0 +1,2 @@
+# This file ensures the reports directory exists in version control
+# Report files are excluded from git via .gitignore

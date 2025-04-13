@@ -3,16 +3,17 @@
 Evolutionary Testing for Todo App using DEAP
 This test evolves payloads to find edge cases that might break the application.
 """
+import json
 import random
 import string
-import json
-import sqlite3
-import time
 import sys
+import time
 import uuid
-from deap import base, creator, tools, algorithms
+
+from deap import base, creator, tools
+
+from todo.controller import add_task, delete_task, list_tasks, toggle_done
 from todo.models import init_db
-from todo.controller import add_task, toggle_done, delete_task, list_tasks
 
 # Constants for evolving payloads
 MAX_TITLE_LENGTH = 20000  # Very large title to test limits
@@ -367,10 +368,18 @@ def log_result(payload, fitness, generation, individual_idx):
     print(json.dumps(result))
     return result
 
-def run_evolutionary_test(max_generations=MAX_GENERATIONS):
+def run_evolutionary_test(max_generations=MAX_GENERATIONS, quick_mode=False):
     """Run the evolutionary test to find problematic inputs"""
     # Initialize DEAP toolbox
     toolbox = base.Toolbox()
+    
+    # Use fewer generations and smaller population in quick mode
+    if quick_mode:
+        actual_max_generations = 5
+        population_size = 20
+    else:
+        actual_max_generations = max_generations
+        population_size = POPULATION_SIZE
     
     # Register initialization, mutation, crossover and selection
     toolbox.register("payload_char", random.choice, string.printable + ''.join(SPECIAL_CHARS))
@@ -392,13 +401,19 @@ def run_evolutionary_test(max_generations=MAX_GENERATIONS):
     toolbox.register("select", tools.selTournament, tournsize=3)
     
     # Create initial population
-    population = toolbox.population_guess(n=POPULATION_SIZE)
+    population = toolbox.population_guess(n=population_size)
     
     # Evaluate initial population
-    print(json.dumps({"operation": "evolutionary_test", "status": "starting", "population_size": POPULATION_SIZE, "max_generations": max_generations}))
+    print(json.dumps({
+        "operation": "evolutionary_test", 
+        "status": "starting", 
+        "population_size": population_size, 
+        "max_generations": actual_max_generations,
+        "mode": "quick" if quick_mode else "full"
+    }))
     
     fitnesses = list(map(toolbox.evaluate, population))
-    for ind, fit in zip(population, fitnesses):
+    for ind, fit in zip(population, fitnesses, strict=False):
         ind.fitness.values = fit
     
     # Log initial population
@@ -408,7 +423,7 @@ def run_evolutionary_test(max_generations=MAX_GENERATIONS):
         log_result(payload, ind.fitness.values, gen, i)
     
     # Begin the evolution
-    for gen in range(1, max_generations + 1):
+    for gen in range(1, actual_max_generations + 1):
         print(json.dumps({"operation": "evolutionary_test", "status": "generation_start", "generation": gen}))
         
         # Select the next generation individuals
@@ -418,7 +433,7 @@ def run_evolutionary_test(max_generations=MAX_GENERATIONS):
         offspring = list(map(toolbox.clone, offspring))
         
         # Apply crossover
-        for child1, child2 in zip(offspring[::2], offspring[1::2]):
+        for child1, child2 in zip(offspring[::2], offspring[1::2], strict=False):
             if random.random() < 0.7:  # 70% chance of crossover
                 toolbox.mate(child1, child2)
                 del child1.fitness.values
@@ -433,7 +448,7 @@ def run_evolutionary_test(max_generations=MAX_GENERATIONS):
         # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = map(toolbox.evaluate, invalid_ind)
-        for ind, fit in zip(invalid_ind, fitnesses):
+        for ind, fit in zip(invalid_ind, fitnesses, strict=False):
             ind.fitness.values = fit
         
         # Replace the old population
@@ -447,7 +462,12 @@ def run_evolutionary_test(max_generations=MAX_GENERATIONS):
         print(json.dumps({"operation": "evolutionary_test", "status": "generation_complete", "generation": gen}))
     
     # Return the final population
-    print(json.dumps({"operation": "evolutionary_test", "status": "completed", "total_generations": max_generations}))
+    print(json.dumps({
+        "operation": "evolutionary_test", 
+        "status": "completed", 
+        "total_generations": actual_max_generations,
+        "mode": "quick" if quick_mode else "full"
+    }))
     return population
 
 def analyze_results(population):
@@ -509,10 +529,22 @@ def analyze_results(population):
 if __name__ == "__main__":
     # Create reports directory if it doesn't exist
     import os
+    import sys
+    
+    # Check if quick mode is requested
+    quick_mode = "--quick" in sys.argv
+    
+    if quick_mode:
+        print(json.dumps({
+            "operation": "evolutionary_test_suite",
+            "mode": "quick",
+            "message": "Running in quick mode with reduced generations and population size"
+        }))
+    
     os.makedirs("reports", exist_ok=True)
     
     # Run the evolutionary test
-    final_population = run_evolutionary_test()
+    final_population = run_evolutionary_test(quick_mode=quick_mode)
     
     # Analyze results
     best_payload = analyze_results(final_population)
@@ -520,5 +552,6 @@ if __name__ == "__main__":
     print(json.dumps({
         "operation": "evolutionary_test_suite",
         "status": "completed",
-        "best_fitness": best_payload.fitness.values
+        "best_fitness": best_payload.fitness.values,
+        "mode": "quick" if quick_mode else "full"
     }))

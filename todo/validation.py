@@ -7,7 +7,9 @@ import uuid
 
 # Constants
 MAX_TITLE_LENGTH = 10000  # Maximum allowed length for task titles
-UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+UUID_PATTERN = re.compile(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+)
 
 
 class ValidationError(Exception):
@@ -80,28 +82,36 @@ def validate_task_id(task_id):
 
 def validate_boolean(value):
     """
-    Validate and convert a boolean value.
+    Validate and convert a value to boolean
     
     Args:
-        value: The value to validate as boolean
+        value: Value to convert to boolean
         
     Returns:
-        bool: The validated boolean value
+        bool: Converted boolean value
+        
+    Raises:
+        TypeError: If value cannot be converted to boolean
     """
+    if value is None:
+        return False
+    
     if isinstance(value, bool):
         return value
     
-    if isinstance(value, (int, float)):
+    # Use Union type syntax (X | Y) instead of tuple for isinstance
+    if isinstance(value, str | bytes | bytearray):
+        lowercase_value = str(value).lower().strip()
+        if lowercase_value in ("true", "1", "yes", "y", "t"):
+            return True
+        if lowercase_value in ("false", "0", "no", "n", "f", ""):
+            return False
+        raise TypeError(f"Cannot convert string '{value}' to boolean")
+    
+    if isinstance(value, int | float):
         return bool(value)
     
-    if isinstance(value, str):
-        value = value.lower()
-        if value in ('true', 't', 'yes', 'y', '1'):
-            return True
-        if value in ('false', 'f', 'no', 'n', '0'):
-            return False
-    
-    raise ValidationError(f"Cannot convert {value} to boolean")
+    raise TypeError(f"Cannot convert {type(value).__name__} to boolean")
 
 
 def generate_task_id():
